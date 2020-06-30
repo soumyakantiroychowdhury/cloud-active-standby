@@ -1,5 +1,5 @@
 FROM scratch
 
-COPY server /bin/hello
+COPY app /bin/app
 
-ENTRYPOINT ["/bin/hello"]
+ENTRYPOINT ["/bin/app"]
