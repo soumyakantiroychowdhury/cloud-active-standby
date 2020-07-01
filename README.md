@@ -37,3 +37,28 @@ hello world
 $ sudo docker stop d2fe417e5eb2e3772da97091eadf912f05bca471755b7973546b03206233c404
 d2fe417e5eb2e3772da97091eadf912f05bca471755b7973546b03206233c404
 ```
+
+## How to run
+
+Run two instances of the application. The instances will talk to each other using `/hello` API.
+
+- instance 1:
+
+  `$ ./app -a <IP address or FQDN of instance 2>`
+
+- instance 2:
+
+  `$ ./app -a <IP address or FQDN of instance 1>`
+
+By default the server instance runs on port `8090`.
+
+The command-line parameters are given below:
+
+```
+Usage: app [-h] [-a value] [-p value] [parameters ...]
+ -a, --peerAddr=value
+                   IP address or FQDN of the peer instance
+ -h, --help        Help
+ -p, --port=value  Server Port. Peer instance must run on this port
+```
+
