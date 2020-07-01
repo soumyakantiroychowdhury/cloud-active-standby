@@ -25,17 +25,7 @@ REPOSITORY          TAG                 IMAGE ID            CREATED             
 <none>              <none>              595a8d52381c        2 seconds ago       7.32 MB
 act_stby_eg_1       latest              ae29545a7bc2        2 seconds ago       7.32 MB
 
-# Run the image
-$ sudo docker run -itd --network=host ae29545a7bc2
-d2fe417e5eb2e3772da97091eadf912f05bca471755b7973546b03206233c404
 
-# From another shell, test if the app is running using "curl"
-$ curl localhost:8090/hello
-hello world
-
-# Stop the container
-$ sudo docker stop d2fe417e5eb2e3772da97091eadf912f05bca471755b7973546b03206233c404
-d2fe417e5eb2e3772da97091eadf912f05bca471755b7973546b03206233c404
 ```
 
 ## How to run
@@ -62,3 +52,28 @@ Usage: app [-h] [-a value] [-p value] [parameters ...]
  -p, --port=value  Server Port. Peer instance must run on this port
 ```
 
+### Run as container
+
+```
+# Run the image (Note the argument to the container inside "")
+$ sudo docker run -itd --network=host ae29545a7bc2 "-a192.168.137.1"
+d2fe417e5eb2e3772da97091eadf912f05bca471755b7973546b03206233c404
+
+
+# From another shell, test if the app is running using "curl"
+$ curl localhost:8090/hello
+hello world
+
+# See logs from the container
+$ docker logs d2fe417e5eb2e3772da97091eadf912f05bca471755b7973546b03206233c404
+2020/07/01 01:49:58 Starting server
+2020/07/01 01:49:58 Peer instance address 192.168.137.1
+2020/07/01 01:49:59 Request from 192.168.137.1:12081 for /hello
+2020/07/01 01:50:07 Request from 192.168.137.1:12082 for /hello
+2020/07/01 01:50:17 Request from 192.168.137.1:12084 for /hello
+...
+
+# Stop the container
+$ sudo docker stop d2fe417e5eb2e3772da97091eadf912f05bca471755b7973546b03206233c404
+d2fe417e5eb2e3772da97091eadf912f05bca471755b7973546b03206233c404
+```

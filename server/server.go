@@ -27,9 +27,9 @@ func main() {
 		getopt.Usage()
 		os.Exit(0)
 	}
-     
+
 	log.Println("Starting server ")
-        log.Println("Peer instance address " + *peerAddr)
+	log.Println("Peer instance address " + *peerAddr)
 	signalch := make(chan os.Signal, 1)
 	signal.Notify(signalch, os.Interrupt, syscall.SIGTERM)
 	ticker := time.NewTicker(10000 * time.Millisecond)
