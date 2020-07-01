@@ -19,7 +19,7 @@ func hello(w http.ResponseWriter, req *http.Request) {
 func main() {
 	var (
 		peerAddr = getopt.StringLong("peerAddr", 'a', "", "IP address or FQDN of the peer instance")
-		peerPort = getopt.StringLong("peerPort", 'p', "", "Port of the peer instance")
+		port     = getopt.StringLong("port", 'p', "8090", "Server Port. Peer instance must run on this port")
 		help     = getopt.BoolLong("help", 'h', "Help")
 	)
 	getopt.Parse()
@@ -28,7 +28,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	log.Println("Starting server at " + time.Now().String())
+	log.Println("Starting server ")
 	signalch := make(chan os.Signal, 1)
 	signal.Notify(signalch, os.Interrupt, syscall.SIGTERM)
 	ticker := time.NewTicker(10000 * time.Millisecond)
@@ -39,7 +39,7 @@ func main() {
 			case <-done:
 				return
 			case <-ticker.C:
-				peerURL := "http://" + *peerAddr + ":" + *peerPort + "/hello"
+				peerURL := "http://" + *peerAddr + ":" + *port + "/hello"
 				res, err := http.Get(peerURL)
 				if err == nil {
 					res.Body.Close()
@@ -49,7 +49,7 @@ func main() {
 	}()
 	http.HandleFunc("/hello", hello)
 	go func() {
-		err := http.ListenAndServe(":8090", nil)
+		err := http.ListenAndServe(":"+*port, nil)
 		if err != http.ErrServerClosed {
 		}
 	}()
