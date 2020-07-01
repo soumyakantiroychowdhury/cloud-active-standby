@@ -24,7 +24,7 @@ func main() {
 	log.Println("Starting server at " + time.Now().String())
 	signalch := make(chan os.Signal, 1)
 	signal.Notify(signalch, os.Interrupt, syscall.SIGTERM)
-	ticker := time.NewTicker(1000 * time.Millisecond)
+	ticker := time.NewTicker(10000 * time.Millisecond)
 	done := make(chan bool)
 	go func() {
 		for {
@@ -33,7 +33,10 @@ func main() {
 				return
 			case t := <-ticker.C:
                 fmt.Println("Requesting peer at ", t)
-                http.Get("http://" + *peerAddr + ":" + *peerPort + "/hello")
+                res, err := http.Get("http://" + *peerAddr + ":" + *peerPort + "/hello")
+                if err == nil {
+                    res.Body.Close()
+                }
 			}
 		}
 	}()
