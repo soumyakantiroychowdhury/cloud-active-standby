@@ -18,8 +18,8 @@ func hello(w http.ResponseWriter, req *http.Request) {
 
 func main() {
 	var (
-		peerAddr = getopt.StringLong("peerAddr", 'a', "", "IP address or FQDN of the peer instance")
-		port     = getopt.StringLong("port", 'p', "8090", "Server Port. Peer instance must run on this port")
+		peerAddr = getopt.StringLong("peerAddr", 'a', "", "IP address or FQDN of the peer instance. Leave empty for self-test.")
+		port     = getopt.StringLong("port", 'p', "8090", "Server Port. Peer instance must run on this port.")
 		help     = getopt.BoolLong("help", 'h', "Help")
 	)
 	getopt.Parse()
@@ -27,8 +27,9 @@ func main() {
 		getopt.Usage()
 		os.Exit(0)
 	}
-
+     
 	log.Println("Starting server ")
+        log.Println("Peer instance address " + *peerAddr)
 	signalch := make(chan os.Signal, 1)
 	signal.Notify(signalch, os.Interrupt, syscall.SIGTERM)
 	ticker := time.NewTicker(10000 * time.Millisecond)
