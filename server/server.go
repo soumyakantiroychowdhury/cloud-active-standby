@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/pborman/getopt"
 	"log"
@@ -10,13 +11,13 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"bytes"
 )
 
 var isActive bool
 var isReplicating bool
 var ts int64
 var lastFetchedVersion int
+var pauseElection bool
 
 type replicationSet struct {
 	ResultSet   string `json:"resultSet"`
@@ -76,6 +77,7 @@ func main() {
 	isReplicating = false
 	ts = time.Now().UnixNano()
 	lastFetchedVersion = 0
+	pauseElection = false
 	var (
 		peerAddr = getopt.StringLong("peerAddr", 'a', "", "IP address or FQDN of the peer instance. Mandatory")
 		port     = getopt.StringLong("port", 'p', "8090", "Server Port. Peer instance must run on this port. Optional")
@@ -105,14 +107,18 @@ func main() {
 			select {
 			case <-done:
 				return
-			case <- tickerElection.C:
-				if isActive == false && isReplicating == false {
+			case <-tickerElection.C:
+				if pauseElection == false {
 					peerURL := "http://" + *peerAddr + ":" + *port + "/elect-active"
 					elActive := electActive{Ts: ts}
 					jsonValue, _ := json.Marshal(elActive)
 					res, err := http.Post(peerURL, "application/json", bytes.NewBuffer(jsonValue))
 					if err == nil {
 						res.Body.Close()
+					}
+					if isActive == false && isReplicating == false {
+					} else {
+						pauseElection = true
 					}
 				}
 			case <-tickerReplication.C:
