@@ -137,7 +137,7 @@ func main() {
 					peerURL := "http://" + *peerAddr + ":" + *port + "/replication-set?version=" +
 						strconv.Itoa(lastFetchedVersion)
 					client := http.Client{
-						Timeout: 1 * time.Second,
+						Timeout: 2 * time.Second,
 					}
 					res, err := client.Get(peerURL)
 					if err != nil {
