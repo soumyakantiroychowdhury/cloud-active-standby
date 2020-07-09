@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"math/rand"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -32,7 +31,7 @@ type electActive struct {
 }
 
 func replicationSetHandler(w http.ResponseWriter, req *http.Request) {
-	version := req.URL.Query().Get("last-version")
+	version := req.URL.Query().Get("version")
 	if version == "" {
 		version = "0"
 	}
@@ -58,7 +57,7 @@ func electActiveHandler(w http.ResponseWriter, req *http.Request) {
 		// Peer has started later than this instance
 		isActive = true
 		isReplicating = false
-		log.Println("Server transitions to active")
+		log.Println("Server becomes active / remains active")
 	} else {
 		// Remain as standby, start replication
 		isReplicating = true
@@ -138,11 +137,13 @@ func main() {
 					peerURL := "http://" + *peerAddr + ":" + *port + "/replication-set?version=" +
 						strconv.Itoa(lastFetchedVersion)
 					res, err := http.Get(peerURL)
-					if err, ok := err.(net.Error); ok && err.Timeout() {
-						// Peer is down, time to become active and start advertising candidature
+					if err != nil {
+						// Peer is down or link failure, time to become active and start advertising candidature
+						log.Println("Replicaion error: " + err.Error())
 						isActive = true
 						isReplicating = false
 						runElection = true
+						log.Println("Server transitions to active from standby")
 					} else {
 						// Do nothing with replication set
 						res.Body.Close()
