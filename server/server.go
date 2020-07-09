@@ -136,7 +136,10 @@ func main() {
 				if isActive == false && isReplicating == true {
 					peerURL := "http://" + *peerAddr + ":" + *port + "/replication-set?version=" +
 						strconv.Itoa(lastFetchedVersion)
-					res, err := http.Get(peerURL)
+					client := http.Client{
+						Timeout: 1 * time.Second,
+					}
+					res, err := client.Get(peerURL)
 					if err != nil {
 						// Peer is down or link failure, time to become active and start advertising candidature
 						log.Println("Replicaion error: " + err.Error())
