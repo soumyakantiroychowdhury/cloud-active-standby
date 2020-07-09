@@ -3,21 +3,24 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/pborman/getopt"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/pborman/getopt"
 )
 
 var isActive bool
 var isReplicating bool
 var ts int64
 var lastFetchedVersion int
-var pauseElection bool
+var runElection bool
 
 type replicationSet struct {
 	ResultSet   string `json:"resultSet"`
@@ -54,10 +57,12 @@ func electActiveHandler(w http.ResponseWriter, req *http.Request) {
 	if elActive.Ts > ts {
 		// Peer has started later than this instance
 		isActive = true
+		isReplicating = false
 		log.Println("Server transitions to active")
 	} else {
 		// Remain as standby, start replication
 		isReplicating = true
+		isActive = false
 		log.Println("Server remains standby, starts replication from active")
 	}
 
@@ -77,11 +82,13 @@ func main() {
 	isReplicating = false
 	ts = time.Now().UnixNano()
 	lastFetchedVersion = 0
-	pauseElection = false
+	runElection = true
 	var (
-		peerAddr = getopt.StringLong("peerAddr", 'a', "", "IP address or FQDN of the peer instance. Mandatory")
-		port     = getopt.StringLong("port", 'p', "8090", "Server Port. Peer instance must run on this port. Optional")
-		help     = getopt.BoolLong("help", 'h', "Help")
+		peerAddr = getopt.StringLong(
+			"peerAddr", 'a', "", "IP address or FQDN of the peer instance. Mandatory")
+		port = getopt.StringLong(
+			"port", 'p', "8090", "Server Port. Peer instance must run on this port. Optional")
+		help = getopt.BoolLong("help", 'h', "Help")
 	)
 	getopt.Parse()
 	if *help {
@@ -93,7 +100,9 @@ func main() {
 		log.Println("A valid IP address or FQDN of peer instance is mandatory")
 		os.Exit(0)
 	} else {
-		log.Println("Starting server, running as standby (non-replicating) instance. Peer instance address " + *peerAddr + ".")
+		log.Println(
+			"Starting server, running as standby (non-replicating). Peer instance address " +
+				*peerAddr + ".")
 		log.Println("ts value =", ts)
 	}
 
@@ -108,24 +117,33 @@ func main() {
 			case <-done:
 				return
 			case <-tickerElection.C:
-				if pauseElection == false {
+				if runElection == true {
 					peerURL := "http://" + *peerAddr + ":" + *port + "/elect-active"
 					elActive := electActive{Ts: ts}
 					jsonValue, _ := json.Marshal(elActive)
 					res, err := http.Post(peerURL, "application/json", bytes.NewBuffer(jsonValue))
 					if err == nil {
 						res.Body.Close()
-					}
-					if isActive == false && isReplicating == false {
+						if isActive == false && isReplicating == false {
+							// No communication from peer yet, continue to advertise candidature
+						} else {
+							runElection = false
+						}
 					} else {
-						pauseElection = true
+						// Probably peer is not alive yet
 					}
 				}
 			case <-tickerReplication.C:
 				if isActive == false && isReplicating == true {
-					peerURL := "http://" + *peerAddr + ":" + *port + "/replication-set?version=" + string(lastFetchedVersion)
+					peerURL := "http://" + *peerAddr + ":" + *port + "/replication-set?version=" +
+						strconv.Itoa(lastFetchedVersion)
 					res, err := http.Get(peerURL)
-					if err == nil {
+					if err, ok := err.(net.Error); ok && err.Timeout() {
+						// Peer is down, time to become active and start advertising candidature
+						isActive = true
+						isReplicating = false
+						runElection = true
+					} else {
 						// Do nothing with replication set
 						res.Body.Close()
 					}
