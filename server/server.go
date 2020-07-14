@@ -15,6 +15,7 @@ import (
 	"github.com/pborman/getopt"
 )
 
+var isReady bool
 var isActive bool
 var isReplicating bool
 var ts int64
@@ -58,9 +59,10 @@ func electActiveHandler(w http.ResponseWriter, req *http.Request) {
 		isActive = true
 		isReplicating = false
 		runElection = true
-		log.Println("Server becomes active / remains active")
+		log.Println("Server is active")
 	} else {
 		// Remain as standby, start replication
+		isReady = false
 		isReplicating = true
 		isActive = false
 		log.Println("Server remains standby, starts replication from active")
@@ -70,7 +72,7 @@ func electActiveHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func readyHandler(w http.ResponseWriter, req *http.Request) {
-	if isActive == true {
+	if isReady == true {
 		w.WriteHeader(http.StatusNoContent)
 	} else {
 		http.Error(w, "Not active", http.StatusInternalServerError)
@@ -78,6 +80,8 @@ func readyHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
+	// All nodes begin as ready until election is complete
+	isReady = true
 	isActive = false
 	isReplicating = false
 	ts = time.Now().UnixNano()
@@ -144,6 +148,7 @@ func main() {
 					if err != nil {
 						// Peer is down or link failure, time to become active and start advertising candidature
 						log.Println("Replicaion error: " + err.Error())
+						isReady = true
 						isActive = true
 						isReplicating = false
 						runElection = true
