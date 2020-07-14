@@ -57,6 +57,7 @@ func electActiveHandler(w http.ResponseWriter, req *http.Request) {
 		// Peer has started later than this instance
 		isActive = true
 		isReplicating = false
+		runElection = true
 		log.Println("Server becomes active / remains active")
 	} else {
 		// Remain as standby, start replication
