@@ -112,7 +112,7 @@ func main() {
 
 	signalch := make(chan os.Signal, 1)
 	signal.Notify(signalch, os.Interrupt, syscall.SIGTERM)
-	tickerReplication := time.NewTicker(10000 * time.Millisecond)
+	tickerReplication := time.NewTicker(1000 * time.Millisecond)
 	tickerElection := time.NewTicker(1000 * time.Millisecond)
 	done := make(chan bool)
 	go func() {
@@ -122,6 +122,7 @@ func main() {
 				return
 			case <-tickerElection.C:
 				if runElection == true {
+          log.Println("Participating in election")
 					peerURL := "http://" + *peerAddr + ":" + *port + "/elect-active"
 					elActive := electActive{Ts: ts}
 					jsonValue, _ := json.Marshal(elActive)
@@ -135,6 +136,7 @@ func main() {
 						}
 					} else {
 						// Probably peer is not alive yet
+						log.Println("Election error: " + err.Error())
 					}
 				}
 			case <-tickerReplication.C:
