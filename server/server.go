@@ -16,7 +16,6 @@ import (
 
 
 var isActive bool
-var ts int64
 var lastFetchedVersion int
 
 type replicationSet struct {
@@ -54,7 +53,6 @@ func readyHandler(w http.ResponseWriter, req *http.Request) {
 
 func main() {
 	isActive = false
-	ts = time.Now().UnixNano()
 	lastFetchedVersion = 0
 	var (
 		peerAddr = getopt.StringLong(
@@ -79,10 +77,11 @@ func main() {
 		log.Println("A valid IP address or FQDN of peer instance is mandatory")
 		os.Exit(0)
 	} else {
-		log.Println(
-			"Starting server, running as standby (non-replicating). Peer instance address " +
-				*peerAddr + ".")
-		log.Println("ts value =", ts)
+		if isActive == true {
+		  log.Println("Starting Active instance. Peer instance address " + *peerAddr + ".")
+		} else {
+			log.Println("Starting Standby instance. Peer instance address " + *peerAddr + ".")
+		}
 	}
 
 	signalch := make(chan os.Signal, 1)
