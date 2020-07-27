@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"log"
 	"math/rand"
@@ -15,12 +14,10 @@ import (
 	"github.com/pborman/getopt"
 )
 
-var isReady bool
+
 var isActive bool
-var isReplicating bool
 var ts int64
 var lastFetchedVersion int
-var runElection bool
 
 type replicationSet struct {
 	ResultSet   string `json:"resultSet"`
@@ -47,32 +44,8 @@ func replicationSetHandler(w http.ResponseWriter, req *http.Request) {
 	_ = json.NewEncoder(w).Encode(rSet)
 }
 
-func electActiveHandler(w http.ResponseWriter, req *http.Request) {
-	var elActive electActive
-	err := json.NewDecoder(req.Body).Decode(&elActive)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if elActive.Ts > ts {
-		// Peer has started later than this instance
-		isActive = true
-		isReplicating = false
-		runElection = true
-		log.Println("Server is active")
-	} else {
-		// Remain as standby, start replication
-		isReady = false
-		isReplicating = true
-		isActive = false
-		log.Println("Server remains standby, starts replication from active")
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func readyHandler(w http.ResponseWriter, req *http.Request) {
-	if isReady == true {
+	if isActive == true {
 		w.WriteHeader(http.StatusNoContent)
 	} else {
 		http.Error(w, "Not active", http.StatusInternalServerError)
@@ -80,24 +53,26 @@ func readyHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	// All nodes begin as ready until election is complete
-	isReady = true
 	isActive = false
-	isReplicating = false
 	ts = time.Now().UnixNano()
 	lastFetchedVersion = 0
-	runElection = true
 	var (
 		peerAddr = getopt.StringLong(
 			"peerAddr", 'a', "", "IP address or FQDN of the peer instance. Mandatory")
 		port = getopt.StringLong(
 			"port", 'p', "8090", "Server Port. Peer instance must run on this port. Optional")
+		active = getopt.BoolLong(
+			"active", 'c', "If set, the instance will be active instance in the cluster")
 		help = getopt.BoolLong("help", 'h', "Help")
 	)
 	getopt.Parse()
 	if *help {
 		getopt.Usage()
 		os.Exit(0)
+	}
+
+	if *active {
+		isActive = true
 	}
 
 	if *peerAddr == "" {
@@ -113,34 +88,14 @@ func main() {
 	signalch := make(chan os.Signal, 1)
 	signal.Notify(signalch, os.Interrupt, syscall.SIGTERM)
 	tickerReplication := time.NewTicker(1000 * time.Millisecond)
-	tickerElection := time.NewTicker(1000 * time.Millisecond)
 	done := make(chan bool)
 	go func() {
 		for {
 			select {
 			case <-done:
 				return
-			case <-tickerElection.C:
-				if runElection == true {
-          log.Println("Participating in election")
-					peerURL := "http://" + *peerAddr + ":" + *port + "/elect-active"
-					elActive := electActive{Ts: ts}
-					jsonValue, _ := json.Marshal(elActive)
-					res, err := http.Post(peerURL, "application/json", bytes.NewBuffer(jsonValue))
-					if err == nil {
-						res.Body.Close()
-						if isActive == false && isReplicating == false {
-							// No communication from peer yet, continue to advertise candidature
-						} else {
-							runElection = false
-						}
-					} else {
-						// Probably peer is not alive yet
-						log.Println("Election error: " + err.Error())
-					}
-				}
 			case <-tickerReplication.C:
-				if isActive == false && isReplicating == true {
+				if isActive == false {
 					peerURL := "http://" + *peerAddr + ":" + *port + "/replication-set?version=" +
 						strconv.Itoa(lastFetchedVersion)
 					client := http.Client{
@@ -150,10 +105,7 @@ func main() {
 					if err != nil {
 						// Peer is down or link failure, time to become active and start advertising candidature
 						log.Println("Replicaion error: " + err.Error())
-						isReady = true
 						isActive = true
-						isReplicating = false
-						runElection = true
 						log.Println("Server transitions to active from standby")
 					} else {
 						// Do nothing with replication set
@@ -166,7 +118,6 @@ func main() {
 	}()
 
 	http.HandleFunc("/replication-set", replicationSetHandler)
-	http.HandleFunc("/elect-active", electActiveHandler)
 	// Following API serves as the readiness probe
 	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 	// An active instance returns 2xx status, while a standby instance returns 5xx status
@@ -180,6 +131,5 @@ func main() {
 	<-signalch
 	log.Println("Stopping server")
 	tickerReplication.Stop()
-	tickerElection.Stop()
 	done <- true
 }
