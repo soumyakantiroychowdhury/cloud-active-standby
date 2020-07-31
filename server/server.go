@@ -23,10 +23,6 @@ type replicationSet struct {
 	LastVersion string `json:"lastVersion"`
 }
 
-type electActive struct {
-	Ts int64 `json:"ts"`
-}
-
 func replicationSetHandler(w http.ResponseWriter, req *http.Request) {
 	version := req.URL.Query().Get("version")
 	if version == "" {
@@ -47,7 +43,7 @@ func readyHandler(w http.ResponseWriter, req *http.Request) {
 	if isActive == true {
 		w.WriteHeader(http.StatusNoContent)
 	} else {
-		http.Error(w, "Not active", http.StatusInternalServerError)
+		http.Error(w, "Not ready", http.StatusInternalServerError)
 	}
 }
 
