@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-service
+  labels:
+    app: myapp
+spec:
+  selector:
+    app: myapp
+  ports:
+  - name: n-myapp
+    port: 8090
+  clusterIP: None
+---
+apiVersion: "apps/v1"
+kind: StatefulSet
+metadata:
+  name: instance
+  labels:
+    app: myapp
+spec:
+  serviceName: "myapp-service"
+  replicas: 2
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: act_stby_app
+        imagePullPolicy: Never
+        command:
+        - sh
+        - "-c"
+        - |
+          peer_addr=$(for i in 0 1; do echo instance-$i; done | grep $HOSTNAME -v)
+          svc_addr=`dig myapp-service.default.svc.cluster.local +short`; if [[ ! -z $svc_addr ]]; then echo "Cluster is running" ; exec /bin/app -a "$peer_addr.myapp-service" ; else echo "Creating Cluster"; if [[ $HOSTNAME == "instance-0" ]]; then exec /bin/app -a "$peer_addr.myapp-service" -c; else exec /bin/app -a "$peer_addr.myapp-service"; fi; fi
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8090
+          periodSeconds: 1
+          failureThreshold: 2
